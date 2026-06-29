@@ -63,7 +63,11 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - .:/app           # live code mount so --reload picks up edits
+      - .:/app # live code mount so --reload picks up edits
+      # Keep the image's Linux-built venv and collected static; the bind mount
+      # above would otherwise shadow them with the host's (wrong-platform) copies.
+      - /app/.venv
+      - /app/staticfiles
 
 volumes:
   pgdata:

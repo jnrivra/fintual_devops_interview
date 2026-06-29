@@ -77,6 +77,39 @@ so the delta is the signal. Reproduce with `make bench`; raw output lives in
 
 ---
 
+## How this was built — approach, time, and transparency
+
+**Method, not luck.** I didn't guess at fixes. I seeded the database to production scale
+(100k posts / 500k comments), **measured** every endpoint, and let the numbers set the order —
+the 96-second feed was obviously first. I reframed the brief's three areas into the
+[three-pillar thesis](#the-shape-of-the-work) above, chose depth over breadth, and recorded the
+[scope cuts](NOTES.md#2-what-i-deliberately-did-not-do) as deliberate decisions rather than
+gaps.
+
+**AI-assisted, judgment in the loop.** Fintual allows LLMs *if you share how you used them*, so
+this is fully transparent. The build was driven with **Claude Code**: parallel research
+subagents investigated the tricky calls (Django `GeneratedField` + GIN `tsvector`, migrations
+as a Job vs. an initContainer, gunicorn worker models), and I kept the judgment — reading every
+diff, rejecting scope creep, and catching bugs by **actually running it**. Two real bugs were
+found that way and fixed: the production image surfaced an HTTPS-redirect-vs-healthcheck issue,
+and the dev `docker-compose` surfaced a venv-shadowing issue. Full account and representative
+prompts: [NOTES.md](NOTES.md#4-ai-assisted-development-full-transparency) and
+[docs/COMO-SE-CONSTRUYO.md](docs/COMO-SE-CONSTRUYO.md).
+
+**Build log.** The brief sets a soft 2–6 hour window and says it looks at *signal, not hours* —
+so I optimized for signal and tracked the time honestly as a build log. Total focused
+engineering: **1 h 16 min** (21% of the 6 h timebox), leaning on parallel agents to keep
+wall-clock tight while keeping the decisions human.
+
+| Phase | Time |
+|---|---|
+| Planning & diagnosis — read the repo, map the planted problems, set the thesis | 25 min |
+| Environment setup — toolchain, Postgres, seed 100k/500k | 10 min |
+| Implementation & validation — the three pillars, benchmarked + Docker-tested | 41 min |
+| **Total** | **1 h 16 min · 21% of the timebox** |
+
+---
+
 ## Quickstart
 
 **Requirements:** Docker + Docker Compose v2. Nothing else on the host.
