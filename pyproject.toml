@@ -8,6 +8,11 @@ dependencies = [
     "django-ninja>=1.5,<2",
     "psycopg[binary]>=3.3,<4",
     "faker>=30",
+    "gunicorn>=26.0.0",
+    "whitenoise>=6.12.0",
+    "django-prometheus>=2.5.0",
+    "python-json-logger>=4.1.0",
+    "dj-database-url>=3.1.2",
 ]
 
 [dependency-groups]
@@ -23,6 +28,10 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Las migraciones son autogeneradas por Django: no las formateamos a mano.
+"*/migrations/*" = ["E501"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "core.settings"

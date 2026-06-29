@@ -6,32 +6,39 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('blog', '0001_initial'),
+        ("blog", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='post',
-            name='search_vector',
-            field=models.GeneratedField(db_persist=True, expression=django.contrib.postgres.search.SearchVector('title', 'body', config='english'), output_field=django.contrib.postgres.search.SearchVectorField()),
+            model_name="post",
+            name="search_vector",
+            field=models.GeneratedField(
+                db_persist=True,
+                expression=django.contrib.postgres.search.SearchVector(
+                    "title", "body", config="english"
+                ),
+                output_field=django.contrib.postgres.search.SearchVectorField(),
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='email',
+            model_name="user",
+            name="email",
             field=models.EmailField(max_length=255, unique=True),
         ),
         migrations.AddIndex(
-            model_name='comment',
-            index=models.Index(fields=['post', 'created_at'], name='comment_post_created_idx'),
+            model_name="comment",
+            index=models.Index(fields=["post", "created_at"], name="comment_post_created_idx"),
         ),
         migrations.AddIndex(
-            model_name='post',
-            index=models.Index(fields=['is_published', '-created_at'], name='post_pub_created_idx'),
+            model_name="post",
+            index=models.Index(fields=["is_published", "-created_at"], name="post_pub_created_idx"),
         ),
         migrations.AddIndex(
-            model_name='post',
-            index=django.contrib.postgres.indexes.GinIndex(fields=['search_vector'], name='post_search_gin'),
+            model_name="post",
+            index=django.contrib.postgres.indexes.GinIndex(
+                fields=["search_vector"], name="post_search_gin"
+            ),
         ),
     ]

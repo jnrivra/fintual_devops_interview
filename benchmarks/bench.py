@@ -8,6 +8,7 @@ Uso:  uv run python benchmarks/bench.py [--json salida.json] [--label antes]
 No necesita servidor corriendo: usa el test client de Django en proceso y
 CaptureQueriesContext para contar exactamente cuántas consultas dispara cada endpoint.
 """
+
 import argparse
 import json
 import os
@@ -79,16 +80,16 @@ def main():
         ("GET", f"/api/users/find?email={fx['user_email']}"),
     ]
 
-    print(f"\n{'='*72}\n  BENCHMARK [{args.label}]  ·  {fx}\n{'='*72}")
+    print(f"\n{'=' * 72}\n  BENCHMARK [{args.label}]  ·  {fx}\n{'=' * 72}")
     print(f"  {'endpoint':<34}{'queries':>9}{'mediana ms':>14}{'status':>9}")
-    print(f"  {'-'*64}")
+    print(f"  {'-' * 64}")
     results = []
     for method, path in endpoints:
         nq, ms, status = measure(client, method, path, args.runs)
         flag = "  🔴" if (nq > 20 or ms > 200) else ""
         print(f"  {path:<34}{nq:>9}{ms:>13.1f}{status:>9}{flag}")
         results.append({"endpoint": path, "queries": nq, "ms": round(ms, 1), "status": status})
-    print(f"{'='*72}\n")
+    print(f"{'=' * 72}\n")
 
     if args.json:
         with open(args.json, "w") as f:

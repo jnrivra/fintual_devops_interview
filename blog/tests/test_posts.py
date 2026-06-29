@@ -45,9 +45,7 @@ def test_list_posts_constant_queries_no_n_plus_one(client, user):
 
     tag = Tag.objects.create(name="Python", slug="python")
     for i in range(10):
-        u = User.objects.create(
-            username=f"u{i}", email=f"u{i}@example.com", display_name=f"U{i}"
-        )
+        u = User.objects.create(username=f"u{i}", email=f"u{i}@example.com", display_name=f"U{i}")
         p = Post.objects.create(author=u, title=f"Post {i}", body="body")
         p.tags.add(tag)
 
