@@ -143,6 +143,9 @@ LOGGING = {
 # --- Hardening de seguridad activo solo fuera de DEBUG (prod) ---
 if not DEBUG:
     SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+    # Endpoints internos que el cluster pega por HTTP plano (probes de K8s, scrape
+    # de Prometheus): no deben redirigirse a HTTPS o los health checks fallan.
+    SECURE_REDIRECT_EXEMPT = [r"^healthz$", r"^readyz$", r"^metrics$"]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "31536000"))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
