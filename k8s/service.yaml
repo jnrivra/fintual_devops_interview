@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fintual-content-service
+  labels:
+    app: fintual-content-service
+spec:
+  type: ClusterIP
+  selector:
+    app: fintual-content-service
+  ports:
+    - name: http
+      port: 80          # cluster-internal stable port
+      targetPort: 8000  # gunicorn in the pod

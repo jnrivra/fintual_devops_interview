@@ -1,0 +1,40 @@
+# Database migrations run as a run-to-completion Job, NOT an initContainer.
+#
+# Why a Job and not an initContainer:
+#   An initContainer runs on EVERY replica. With 2+ pods (or HPA scale-up) you'd get
+#   N concurrent `manage.py migrate` processes racing the same schema. A single Job
+#   runs migrations EXACTLY ONCE per deploy. The ArgoCD PreSync hook below ensures it
+#   completes before the new ReplicaSet rolls out. (Keep initContainers only for a
+#   single-replica app or a pure "wait-for-db" gate.)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fintual-content-service-migrate
+  labels:
+    app: fintual-content-service
+  annotations:
+    # ArgoCD: run as a PreSync hook so migrations finish before pods roll.
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600   # auto-clean finished Jobs after 10 min
+  template:
+    metadata:
+      labels:
+        app: fintual-content-service
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: migrate
+          image: ghcr.io/your-org/fintual-content-service:latest
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: fintual-content-service-config
+            - secretRef:
+                name: fintual-content-service-secrets

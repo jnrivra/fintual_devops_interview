@@ -1,0 +1,69 @@
+# docker-compose.yml — one-command developer experience.
+#
+# `docker compose up --build` replaces the README's "install Postgres 16, createdb,
+# seed" flow:  db (waits until healthy) -> migrate (run-to-completion) -> web.
+#
+# The host-side Postgres port is configurable so it won't clash with a local PG:
+#   DB_PORT=5433 docker compose up        # -> localhost:5433 maps to container 5432
+name: fintual-content-service
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-backend_devops_interview}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      # Map host port from env (default 5432) -> container's fixed 5432.
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Wait for an actually-ready DB, not just a started container.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-backend_devops_interview}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # One-shot migration step. `web` waits for this to complete successfully, so the
+  # schema is always current before any request is served. Mirrors the K8s migrate Job.
+  migrate:
+    image: ${IMAGE:-fintual-content-service}:${TAG:-local}
+    build: .
+    command: python manage.py migrate --noinput
+    environment:
+      # Inside the compose network the DB is reachable as "db" on its fixed 5432.
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_devops_interview}
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: dev-only-not-secret
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ${IMAGE:-fintual-content-service}:${TAG:-local}
+    build: .
+    # --reload for live dev; overrides the image's production gunicorn CMD.
+    command: >
+      gunicorn core.wsgi:application
+      --bind 0.0.0.0:8000 --workers 2 --worker-class gthread --threads 4
+      --reload --access-logfile - --error-logfile -
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-backend_devops_interview}
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: dev-only-not-secret
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - .:/app           # live code mount so --reload picks up edits
+
+volumes:
+  pgdata:

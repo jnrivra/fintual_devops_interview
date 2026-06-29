@@ -1,0 +1,42 @@
+{{- if .Values.migrations.enabled }}
+# Migrations as a run-to-completion Job (NOT an initContainer, which would run
+# per-replica and race). Both hook systems are wired:
+#   - Helm native hook: runs on `helm upgrade/install` before the rollout.
+#   - ArgoCD PreSync hook: runs before ArgoCD syncs the new pods.
+# The release-revision suffix gives each deploy a fresh, immutable Job name.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "fcs.name" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "fcs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade,pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "fcs.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: migrate
+          image: {{ include "fcs.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "fcs.name" . }}-config
+            - secretRef:
+                name: {{ include "fcs.name" . }}-secrets
+{{- end }}

@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fintual-content-service
+  labels:
+    app: fintual-content-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fintual-content-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0   # never drop below desired capacity during a rollout
+  template:
+    metadata:
+      labels:
+        app: fintual-content-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: web
+          image: ghcr.io/your-org/fintual-content-service:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: fintual-content-service-config
+            - secretRef:
+                name: fintual-content-service-secrets
+          # Liveness: is the process answering at all? Cheap, no DB — a DB blip must
+          # not restart healthy pods. Host header satisfies a strict ALLOWED_HOSTS,
+          # since K8s probes otherwise send the pod IP as Host and get a 400.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Readiness: can it actually serve? Checks the DB. On a DB blip the pod is
+          # pulled from the Service endpoints instead of being killed.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Startup: give a slow cold start room before liveness takes over.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
+            periodSeconds: 5
+            failureThreshold: 12   # up to ~60s to come up
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true   # WhiteNoise serves pre-collected static; only /tmp is writable
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

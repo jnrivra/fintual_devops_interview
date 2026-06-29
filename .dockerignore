@@ -1,0 +1,30 @@
+# Keep the build context small (faster builds) and avoid leaking secrets.
+.git
+.gitignore
+.venv
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+*.sqlite3
+
+# Collected static is regenerated inside the image build.
+staticfiles/
+
+# Docs and local-only files never belong in the image.
+*.md
+.env
+.env.*
+!.env.example
+
+# Don't ship the build/orchestration files into the image itself.
+.dockerignore
+Dockerfile
+docker-compose*.yml
+Makefile
+k8s/
+helm/
+.github/
+benchmarks/

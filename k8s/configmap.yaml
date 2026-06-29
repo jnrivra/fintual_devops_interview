@@ -1,0 +1,13 @@
+# Non-secret runtime configuration. Mounted into every pod via envFrom.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fintual-content-service-config
+  labels:
+    app: fintual-content-service
+data:
+  DJANGO_DEBUG: "0"
+  DJANGO_ALLOWED_HOSTS: "api.example.com,fintual-content-service.default.svc.cluster.local"
+  DJANGO_SECURE_SSL_REDIRECT: "1"
+  # gunicorn worker count. Keep in step with the pod's CPU request/limit.
+  WEB_CONCURRENCY: "3"

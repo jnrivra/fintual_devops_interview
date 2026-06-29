@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fintual-content-service
+description: Django 5.2 + django-ninja content service
+type: application
+version: 0.1.0          # chart version (bump on chart changes)
+appVersion: "0.1.0"     # default app/image version (CI overrides image.tag with the git SHA)

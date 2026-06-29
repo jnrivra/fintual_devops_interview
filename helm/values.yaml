@@ -1,0 +1,39 @@
+replicaCount: 2   # used only when autoscaling.enabled = false
+
+image:
+  repository: ghcr.io/your-org/fintual-content-service
+  tag: ""               # defaults to .Chart.AppVersion; CI overrides with the git SHA
+  pullPolicy: IfNotPresent
+
+# Non-secret config -> ConfigMap.
+env:
+  DJANGO_DEBUG: "0"
+  DJANGO_ALLOWED_HOSTS: "api.example.com"
+  DJANGO_SECURE_SSL_REDIRECT: "1"
+  WEB_CONCURRENCY: "3"
+
+# Secrets -> Secret. In real life these come from ExternalSecrets; inline only for the skeleton.
+secrets:
+  DJANGO_SECRET_KEY: "replace-me"
+  DATABASE_URL: "postgres://postgres:postgres@postgres:5432/backend_devops_interview"
+
+migrations:
+  enabled: true
+
+service:
+  port: 80
+  targetPort: 8000
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  UV_VERSION: "0.9.x"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "${{ env.UV_VERSION }}"
+          enable-cache: true
+      # --locked is the same lockfile gate the Dockerfile uses: a stale uv.lock fails here.
+      - run: uv sync --locked
+      - name: Ruff lint
+        run: uv run ruff check .
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    # Real Postgres 16 service so the smoke tests exercise the same engine as prod.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: backend_devops_interview
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/backend_devops_interview
+      DJANGO_SECRET_KEY: ci-test-key
+      DJANGO_DEBUG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "${{ env.UV_VERSION }}"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Run migrations
+        run: uv run python manage.py migrate --noinput
+      - name: Pytest
+        run: uv run pytest -q
+
+  docker:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      # Build only (no push) — verifies the image builds and the lockfile is fresh.
+      # gha cache reuses the buildx layer cache across runs, so the dependency layer
+      # is only rebuilt when uv.lock changes.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: fintual-content-service:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
