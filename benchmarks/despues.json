@@ -1,0 +1,47 @@
+{
+  "label": "despues",
+  "fixtures": {
+    "post_id": 13953,
+    "tag_slug": "python",
+    "user_id": 1,
+    "user_email": "user00000@example.com"
+  },
+  "results": [
+    {
+      "endpoint": "/api/posts",
+      "queries": 3,
+      "ms": 54.4,
+      "status": 200
+    },
+    {
+      "endpoint": "/api/posts/search?q=time",
+      "queries": 3,
+      "ms": 482.9,
+      "status": 200
+    },
+    {
+      "endpoint": "/api/posts/by-tag/python",
+      "queries": 4,
+      "ms": 59.2,
+      "status": 200
+    },
+    {
+      "endpoint": "/api/posts/13953",
+      "queries": 4,
+      "ms": 4.2,
+      "status": 200
+    },
+    {
+      "endpoint": "/api/users/1",
+      "queries": 3,
+      "ms": 7.5,
+      "status": 200
+    },
+    {
+      "endpoint": "/api/users/find?email=user00000@example.com",
+      "queries": 3,
+      "ms": 3.4,
+      "status": 200
+    }
+  ]
+}

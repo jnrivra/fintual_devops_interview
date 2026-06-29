@@ -1,6 +1,8 @@
-from django.db.models import Q
+from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.db.models import F
 from django.shortcuts import get_object_or_404
 from ninja import Router
+from ninja.pagination import PageNumberPagination, paginate
 
 from blog.models import Comment, Post, Tag, User
 from blog.schemas import (
@@ -16,7 +18,7 @@ from blog.schemas import (
 router = Router()
 
 
-def _serialize_author(user: User) -> dict:
+def _author_dict(user: User) -> dict:
     return {
         "id": user.id,
         "username": user.username,
@@ -24,66 +26,70 @@ def _serialize_author(user: User) -> dict:
     }
 
 
-def _serialize_tag(tag: Tag) -> dict:
+def _tag_dict(tag: Tag) -> dict:
     return {"id": tag.id, "name": tag.name, "slug": tag.slug}
 
 
-def _serialize_post_list(post: Post) -> dict:
-    return {
-        "id": post.id,
-        "title": post.title,
-        "author": _serialize_author(post.author),
-        "tags": [_serialize_tag(t) for t in post.tags.all()],
-        "view_count": post.view_count,
-        "created_at": post.created_at,
-    }
+def _post_list_qs():
+    """Queryset base del feed: trae autor (JOIN) y tags (prefetch) de una,
+    eliminando el N+1. django-ninja serializa los Schema desde el ORM."""
+    return Post.objects.select_related("author").prefetch_related("tags")
 
 
 @router.get("/posts", response=list[PostListOut])
+@paginate(PageNumberPagination)
 def list_posts(request):
-    posts = Post.objects.filter(is_published=True).order_by("-created_at")
-    return [_serialize_post_list(p) for p in posts]
+    return _post_list_qs().filter(is_published=True).order_by("-created_at")
 
 
 @router.get("/posts/search", response=list[PostListOut])
+@paginate(PageNumberPagination)
 def search_posts(request, q: str):
-    posts = Post.objects.filter(
-        Q(title__icontains=q) | Q(body__icontains=q),
-        is_published=True,
-    ).order_by("-created_at")
-    return [_serialize_post_list(p) for p in posts]
+    # Full-text search sobre el índice GIN (websearch: soporta comillas y -negación).
+    # Reemplaza el icontains que hacía sequential scan sobre 100k filas.
+    query = SearchQuery(q, search_type="websearch")
+    return (
+        _post_list_qs()
+        .filter(search_vector=query, is_published=True)
+        .annotate(rank=SearchRank("search_vector", query))
+        .order_by("-rank", "-created_at")
+    )
 
 
 @router.get("/posts/by-tag/{slug}", response=list[PostListOut])
+@paginate(PageNumberPagination)
 def posts_by_tag(request, slug: str):
     tag = get_object_or_404(Tag, slug=slug)
-    posts = tag.posts.filter(is_published=True).order_by("-created_at")
-    return [_serialize_post_list(p) for p in posts]
+    return _post_list_qs().filter(tags=tag, is_published=True).order_by("-created_at")
 
 
 @router.get("/posts/{post_id}", response=PostDetailOut)
 def get_post(request, post_id: int):
-    post = get_object_or_404(Post, id=post_id)
-    post.view_count += 1
-    post.save()
+    post = get_object_or_404(
+        Post.objects.select_related("author").prefetch_related("tags"), id=post_id
+    )
+    # Incremento atómico en la DB: una sola query, sin race condition / lost update
+    # (antes era read-modify-write con post.save() reescribiendo la fila entera).
+    Post.objects.filter(id=post_id).update(view_count=F("view_count") + 1)
 
+    # select_related en los autores de los comentarios: evita el N+1 del detalle.
     comments = [
         {
             "id": c.id,
-            "author": _serialize_author(c.author),
+            "author": _author_dict(c.author),
             "body": c.body,
             "created_at": c.created_at,
         }
-        for c in post.comments.order_by("created_at")
+        for c in post.comments.select_related("author").order_by("created_at")
     ]
     return {
         "id": post.id,
         "title": post.title,
         "body": post.body,
-        "author": _serialize_author(post.author),
-        "tags": [_serialize_tag(t) for t in post.tags.all()],
+        "author": _author_dict(post.author),
+        "tags": [_tag_dict(t) for t in post.tags.all()],
         "comments": comments,
-        "view_count": post.view_count,
+        "view_count": post.view_count + 1,  # refleja el incremento sin re-leer la fila
         "created_at": post.created_at,
         "updated_at": post.updated_at,
     }
@@ -97,9 +103,10 @@ def create_post(request, payload: PostCreateIn):
         title=payload.title,
         body=payload.body,
     )
-    for slug in payload.tag_slugs:
-        tag = Tag.objects.get(slug=slug)
-        post.tags.add(tag)
+    if payload.tag_slugs:
+        # Una query para resolver todos los tags en vez de una por slug.
+        tags = Tag.objects.filter(slug__in=payload.tag_slugs)
+        post.tags.add(*tags)
     return {"id": post.id, "title": post.title}
 
 
