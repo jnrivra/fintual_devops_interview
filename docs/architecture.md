@@ -1,12 +1,47 @@
 # Architecture
 
-Four views of the same service: how a request flows, why the feed went from 200,001 queries
-to 3, how it deploys on Kubernetes, and how one `request_id` ties the telemetry together. All
-diagrams are Mermaid and render natively on GitHub.
+Five views of the same service: the conceptual map (which pillar each fix serves and what was
+added beyond the brief), how a request flows, why the feed went from 200,001 queries to 3, how
+it deploys on Kubernetes, and how one `request_id` ties the telemetry together. All diagrams
+are Mermaid and render natively on GitHub.
 
 ---
 
-## (a) Component / request flow
+## (a) Conceptual map — pillars, solutions, and what we added
+
+The brief's three areas, read as three conditions for a prototype to survive in production.
+Each fix sits under the pillar it serves; the **blue nodes are beyond the brief** — the step
+from "it works" to "it's operable and legible."
+
+```mermaid
+flowchart TD
+    T["<b>Thesis</b> · turn a working prototype<br/>into a service that survives the real world"]
+    T --> P1
+    T --> P2
+    T --> P3
+
+    P1["<b>Pillar 1 · Fast under load</b><br/><i>brief: Performance</i>"]
+    P2["<b>Pillar 2 · Operable &amp; observable</b><br/><i>brief: Production readiness</i>"]
+    P3["<b>Pillar 3 · Easy to run &amp; understand</b><br/><i>brief: Developer experience</i>"]
+
+    P1 --> S1["Kill the N+1 · select_related / prefetch_related<br/>Pagination · bounded responses<br/>Postgres full-text search + GIN index<br/>Indexes matching the access pattern<br/>Atomic view_count via F()"]
+    P1 --> A1(["<b>+ beyond the brief</b><br/>Measured before/after benchmarks<br/>N+1 regression test (pins query count)"])
+
+    P2 --> S2["12-factor config + SECURE_* hardening<br/>Multi-stage Dockerfile + gunicorn<br/>K8s manifests + Helm + ArgoCD hook"]
+    P2 --> A2(["<b>+ beyond the brief</b><br/>Prometheus /metrics (RED + DB)<br/>JSON logs + request_id correlation<br/>/healthz + /readyz split"])
+
+    P3 --> S3["One command: make up<br/>docker-compose + .env.example"]
+    P3 --> A3(["<b>+ beyond the brief</b><br/>README thesis + measured impact<br/>5 ADRs + Mermaid architecture diagrams<br/>AI-build transparency doc"])
+
+    classDef pillar fill:#005ad6,stroke:#003f96,color:#fff;
+    classDef added fill:#e6eef9,stroke:#005ad6,color:#003f96;
+    class P1,P2,P3 pillar;
+    class A1,A2,A3 added;
+```
+
+---
+
+## (b) Component / request flow
 
 A single Django app pod fronted by gunicorn. Every request gets a `request_id`, is measured
 by the Prometheus middleware, validated by django-ninja, and served from Postgres with
@@ -40,7 +75,7 @@ flowchart LR
 
 ---
 
-## (b) The N+1 path, before and after
+## (c) The N+1 path, before and after
 
 The brief's slowest endpoint. Before: one query for the page, then an author query and a
 tag query **per row** over ~100k published posts — 200,001 queries, 96 seconds. After:
@@ -76,7 +111,7 @@ and [`benchmarks/despues.json`](../benchmarks/despues.json).
 
 ---
 
-## (c) Kubernetes deployment
+## (d) Kubernetes deployment
 
 Migrations run as a **Job** ordered ahead of the rollout (ArgoCD `PreSync` / Helm
 `pre-install,pre-upgrade`), never as a per-replica initContainer. The Deployment carries
@@ -119,7 +154,7 @@ flowchart TB
 
 ---
 
-## (d) Observability correlation — one request_id across the signals
+## (e) Observability correlation — one request_id across the signals
 
 `RequestIDMiddleware` reads `X-Request-ID` (or mints one), stores it in a `contextvar`, and
 echoes it on the response. The log filter stamps it on every JSON log line; the Prometheus

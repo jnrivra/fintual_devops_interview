@@ -17,6 +17,44 @@ below makes it fast, observable, and one command to run.
 
 ---
 
+## The shape of the work
+
+The brief lists three areas to improve. I treated them as **three conceptual pillars** of a
+real-world service, mapped each fix to the pillar it serves, and went one step further: the
+blue nodes are what I **added beyond the brief** — the difference between "it works" and
+"it's operable."
+
+```mermaid
+flowchart TD
+    T["<b>Thesis</b> · turn a working prototype<br/>into a service that survives the real world"]
+    T --> P1
+    T --> P2
+    T --> P3
+
+    P1["<b>Pillar 1 · Fast under load</b><br/><i>brief: Performance</i>"]
+    P2["<b>Pillar 2 · Operable &amp; observable</b><br/><i>brief: Production readiness</i>"]
+    P3["<b>Pillar 3 · Easy to run &amp; understand</b><br/><i>brief: Developer experience</i>"]
+
+    P1 --> S1["Kill the N+1 · select_related / prefetch_related<br/>Pagination · bounded responses<br/>Postgres full-text search + GIN index<br/>Indexes matching the access pattern<br/>Atomic view_count via F()"]
+    P1 --> A1(["<b>+ beyond the brief</b><br/>Measured before/after benchmarks<br/>N+1 regression test (pins query count)"])
+
+    P2 --> S2["12-factor config + SECURE_* hardening<br/>Multi-stage Dockerfile + gunicorn<br/>K8s manifests + Helm + ArgoCD hook"]
+    P2 --> A2(["<b>+ beyond the brief</b><br/>Prometheus /metrics (RED + DB)<br/>JSON logs + request_id correlation<br/>/healthz + /readyz split"])
+
+    P3 --> S3["One command: make up<br/>docker-compose + .env.example"]
+    P3 --> A3(["<b>+ beyond the brief</b><br/>README thesis + measured impact<br/>5 ADRs + Mermaid architecture diagrams<br/>AI-build transparency doc"])
+
+    classDef pillar fill:#005ad6,stroke:#003f96,color:#fff;
+    classDef added fill:#e6eef9,stroke:#005ad6,color:#003f96;
+    class P1,P2,P3 pillar;
+    class A1,A2,A3 added;
+```
+
+Each fix below sits under one of these pillars. The "beyond the brief" nodes are the signal:
+they're what makes the service observable and the work legible to whoever inherits it.
+
+---
+
 ## Impact (measured, not estimated)
 
 Methodology: Django test client + `CaptureQueriesContext` over a database seeded with
@@ -221,7 +259,7 @@ Five passing tests (`uv run pytest -q` or `make test`), including:
 | Doc | What it answers |
 |---|---|
 | [NOTES.md](NOTES.md) | What I did / what I deliberately did NOT do / what I'd do next + AI disclosure |
-| [docs/architecture.md](docs/architecture.md) | The four diagrams: request flow, N+1 before/after, K8s, observability |
+| [docs/architecture.md](docs/architecture.md) | Five diagrams: conceptual pillar map, request flow, N+1 before/after, K8s, observability |
 | [docs/adr/](docs/adr/) | The five irreversible decisions, in MADR/Nygard format |
 | [docs/COMO-SE-CONSTRUYO.md](docs/COMO-SE-CONSTRUYO.md) | How this was built with Claude Code (AI-assisted, full transparency) |
 | [CHANGELOG.md](CHANGELOG.md) | The hardening, in Keep a Changelog format |
