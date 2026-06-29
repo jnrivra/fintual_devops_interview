@@ -1,9 +1,9 @@
 """
-Health checks separados, como espera un orquestador (K8s):
+Separate health checks, as an orchestrator (K8s) expects:
 
-  /healthz  liveness  — ¿el proceso está vivo? No toca I/O. Si falla, K8s reinicia el pod.
-  /readyz   readiness — ¿puede atender tráfico? Verifica la DB. Si falla, K8s lo saca
-                        del balanceador pero NO lo reinicia (puede ser un blip de la DB).
+  /healthz  liveness  — is the process alive? No I/O. If it fails, K8s restarts the pod.
+  /readyz   readiness — can it serve traffic? Checks the DB. If it fails, K8s pulls it
+                        from the load balancer but does NOT restart it (could be a DB blip).
 """
 
 from django.db import connection
@@ -19,6 +19,6 @@ def readyz(request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-    except Exception as exc:  # noqa: BLE001 - cualquier fallo de DB => no listo
+    except Exception as exc:  # noqa: BLE001 - any DB failure => not ready
         return JsonResponse({"status": "unavailable", "detail": str(exc)}, status=503)
     return JsonResponse({"status": "ready"})

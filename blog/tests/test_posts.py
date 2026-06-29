@@ -29,7 +29,7 @@ def test_list_posts_returns_published(client, user):
 
     assert response.status_code == 200
     data = response.json()
-    # El feed ahora viene paginado: {"items": [...], "count": N}
+    # The feed is now paginated: {"items": [...], "count": N}
     assert "items" in data and "count" in data
     titles = [p["title"] for p in data["items"]]
     assert "Hello" in titles
@@ -38,8 +38,8 @@ def test_list_posts_returns_published(client, user):
 
 @pytest.mark.django_db
 def test_list_posts_constant_queries_no_n_plus_one(client, user):
-    """El feed debe usar un número de queries CONSTANTE sin importar cuántos
-    posts/autores/tags haya. Blinda el fix de N+1 contra regresiones."""
+    """The feed must use a CONSTANT number of queries no matter how many
+    posts/authors/tags there are. Guards the N+1 fix against regressions."""
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
 
@@ -52,20 +52,20 @@ def test_list_posts_constant_queries_no_n_plus_one(client, user):
     with CaptureQueriesContext(connection) as ctx:
         response = client.get("/api/posts")
     assert response.status_code == 200
-    # count + posts(+author join) + tags prefetch = pocas queries, NO ~2N.
-    assert len(ctx.captured_queries) <= 5, f"posible N+1: {len(ctx.captured_queries)} queries"
+    # count + posts(+author join) + tags prefetch = few queries, NOT ~2N.
+    assert len(ctx.captured_queries) <= 5, f"possible N+1: {len(ctx.captured_queries)} queries"
 
 
 @pytest.mark.django_db
 def test_search_uses_full_text(client, user):
-    """La búsqueda full-text encuentra por contenido y excluye lo no relacionado."""
-    Post.objects.create(author=user, title="Guía de PostgreSQL", body="índices y tsvector")
-    Post.objects.create(author=user, title="Receta de cocina", body="tomate y albahaca")
+    """Full-text search finds posts by content and excludes unrelated ones."""
+    Post.objects.create(author=user, title="PostgreSQL guide", body="indexes and tsvector")
+    Post.objects.create(author=user, title="Cooking recipe", body="tomato and basil")
 
     data = client.get("/api/posts/search?q=postgresql").json()
     titles = [p["title"] for p in data["items"]]
-    assert "Guía de PostgreSQL" in titles
-    assert "Receta de cocina" not in titles
+    assert "PostgreSQL guide" in titles
+    assert "Cooking recipe" not in titles
 
 
 @pytest.mark.django_db

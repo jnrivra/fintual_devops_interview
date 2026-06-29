@@ -6,8 +6,8 @@ from django.utils import timezone
 
 class User(models.Model):
     username = models.CharField(max_length=64, unique=True)
-    # email se consulta en /api/users/find: debe ser único (evita perfiles
-    # duplicados) y va indexado por el unique constraint.
+    # email is queried in /api/users/find: it must be unique (prevents duplicate
+    # profiles) and is indexed by the unique constraint.
     email = models.EmailField(max_length=255, unique=True)
     display_name = models.CharField(max_length=128)
     bio = models.TextField(blank=True)
@@ -35,9 +35,9 @@ class Post(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     tags = models.ManyToManyField(Tag, related_name="posts", blank=True)
-    # Columna tsvector mantenida por Postgres (GENERATED ALWAYS ... STORED).
-    # GeneratedField le dice a Django que la DB la calcula sola: nunca la escribe
-    # en INSERT/UPDATE y queda siempre en sync. Indexada con GIN (ver Meta).
+    # tsvector column maintained by Postgres (GENERATED ALWAYS ... STORED).
+    # GeneratedField tells Django the DB computes it on its own: it's never written
+    # on INSERT/UPDATE and stays always in sync. Indexed with GIN (see Meta).
     search_vector = models.GeneratedField(
         expression=SearchVector("title", "body", config="english"),
         output_field=SearchVectorField(),
@@ -46,10 +46,10 @@ class Post(models.Model):
 
     class Meta:
         indexes = [
-            # El feed filtra is_published y ordena por -created_at: un índice
-            # compuesto cubre ambos y elimina el sort en disco.
+            # The feed filters is_published and orders by -created_at: a composite
+            # index covers both and removes the on-disk sort.
             models.Index(fields=["is_published", "-created_at"], name="post_pub_created_idx"),
-            # GIN sobre el tsvector: búsqueda de texto sin sequential scan.
+            # GIN over the tsvector: text search without a sequential scan.
             GinIndex(fields=["search_vector"], name="post_search_gin"),
         ]
 
@@ -65,6 +65,6 @@ class Comment(models.Model):
 
     class Meta:
         indexes = [
-            # El detalle de un post ordena sus comentarios por created_at.
+            # The post detail view orders its comments by created_at.
             models.Index(fields=["post", "created_at"], name="comment_post_created_idx"),
         ]

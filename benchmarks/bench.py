@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """
-Medidor de performance por endpoint — cuenta queries SQL y mide latencia.
-El mismo harness para el ANTES y el DESPUÉS, así los números son comparables.
+Per-endpoint performance meter — counts SQL queries and measures latency.
+The same harness for BEFORE and AFTER, so the numbers are comparable.
 
-Uso:  uv run python benchmarks/bench.py [--json salida.json] [--label antes]
+Usage:  uv run python benchmarks/bench.py [--json output.json] [--label before]
 
-No necesita servidor corriendo: usa el test client de Django en proceso y
-CaptureQueriesContext para contar exactamente cuántas consultas dispara cada endpoint.
+No running server needed: it uses Django's in-process test client and
+CaptureQueriesContext to count exactly how many queries each endpoint fires.
 """
 
 import argparse
@@ -16,7 +16,7 @@ import statistics
 import sys
 import time
 
-# permitir importar el proyecto (core, blog) corriendo desde benchmarks/
+# allow importing the project (core, blog) when running from benchmarks/
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import django
@@ -32,7 +32,7 @@ from blog.models import Post, Tag, User  # noqa: E402
 
 
 def pick_fixtures():
-    """Toma ids/slugs reales de la DB para los endpoints que los necesitan."""
+    """Grabs real ids/slugs from the DB for the endpoints that need them."""
     post = Post.objects.filter(is_published=True).order_by("-created_at").first()
     tag = Tag.objects.first()
     user = User.objects.first()
@@ -45,7 +45,7 @@ def pick_fixtures():
 
 
 def measure(client, method, path, runs=3):
-    """Devuelve (n_queries, ms_mediana, status) corriendo el endpoint varias veces."""
+    """Returns (n_queries, median_ms, status) by running the endpoint several times."""
     times = []
     nq = 0
     status = None
@@ -63,8 +63,8 @@ def measure(client, method, path, runs=3):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--json", help="ruta para guardar resultados en JSON")
-    ap.add_argument("--label", default="run", help="etiqueta del run (ej. antes/despues)")
+    ap.add_argument("--json", help="path to save the results as JSON")
+    ap.add_argument("--label", default="run", help="run label (e.g. before/after)")
     ap.add_argument("--runs", type=int, default=3)
     args = ap.parse_args()
 
@@ -81,7 +81,7 @@ def main():
     ]
 
     print(f"\n{'=' * 72}\n  BENCHMARK [{args.label}]  ·  {fx}\n{'=' * 72}")
-    print(f"  {'endpoint':<34}{'queries':>9}{'mediana ms':>14}{'status':>9}")
+    print(f"  {'endpoint':<34}{'queries':>9}{'median ms':>14}{'status':>9}")
     print(f"  {'-' * 64}")
     results = []
     for method, path in endpoints:
@@ -94,7 +94,7 @@ def main():
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"label": args.label, "fixtures": fx, "results": results}, f, indent=2)
-        print(f"  guardado en {args.json}")
+        print(f"  saved to {args.json}")
 
 
 if __name__ == "__main__":

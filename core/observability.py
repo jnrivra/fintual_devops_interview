@@ -1,17 +1,17 @@
 """
-Observabilidad: correlación de request_id entre logs, métricas y trazas.
+Observability: request_id correlation across logs, metrics and traces.
 
-Un solo id por request (X-Request-ID) que:
-  - se lee del header entrante si viene de un proxy/cliente, o se genera,
-  - queda disponible para todos los logs vía un contextvar,
-  - se devuelve en la respuesta para que el caller pueda rastrear su request.
+A single id per request (X-Request-ID) that:
+  - is read from the incoming header if it comes from a proxy/client, or generated,
+  - is made available to every log via a contextvar,
+  - is returned in the response so the caller can trace their request.
 """
 
 import logging
 import uuid
 from contextvars import ContextVar
 
-# contextvar: visible desde cualquier log de la misma request sin pasar el id a mano.
+# contextvar: visible from any log of the same request without passing the id by hand.
 _request_id: ContextVar[str] = ContextVar("request_id", default="-")
 
 
@@ -32,7 +32,7 @@ class RequestIDMiddleware:
 
 
 class RequestIDLogFilter(logging.Filter):
-    """Inyecta request_id en cada registro de log para que el JSON lo incluya."""
+    """Injects request_id into every log record so the JSON includes it."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = _request_id.get()

@@ -31,8 +31,8 @@ def _tag_dict(tag: Tag) -> dict:
 
 
 def _post_list_qs():
-    """Queryset base del feed: trae autor (JOIN) y tags (prefetch) de una,
-    eliminando el N+1. django-ninja serializa los Schema desde el ORM."""
+    """Base queryset for the feed: pulls author (JOIN) and tags (prefetch) in one go,
+    eliminating the N+1. django-ninja serializes the Schemas straight from the ORM."""
     return Post.objects.select_related("author").prefetch_related("tags")
 
 
@@ -45,8 +45,8 @@ def list_posts(request):
 @router.get("/posts/search", response=list[PostListOut])
 @paginate(PageNumberPagination)
 def search_posts(request, q: str):
-    # Full-text search sobre el índice GIN (websearch: soporta comillas y -negación).
-    # Reemplaza el icontains que hacía sequential scan sobre 100k filas.
+    # Full-text search over the GIN index (websearch: supports quotes and -negation).
+    # Replaces the icontains that did a sequential scan over 100k rows.
     query = SearchQuery(q, search_type="websearch")
     return (
         _post_list_qs()
@@ -68,11 +68,11 @@ def get_post(request, post_id: int):
     post = get_object_or_404(
         Post.objects.select_related("author").prefetch_related("tags"), id=post_id
     )
-    # Incremento atómico en la DB: una sola query, sin race condition / lost update
-    # (antes era read-modify-write con post.save() reescribiendo la fila entera).
+    # Atomic increment in the DB: a single query, no race condition / lost update
+    # (it used to be read-modify-write with post.save() rewriting the whole row).
     Post.objects.filter(id=post_id).update(view_count=F("view_count") + 1)
 
-    # select_related en los autores de los comentarios: evita el N+1 del detalle.
+    # select_related on the comment authors: avoids the N+1 in the detail view.
     comments = [
         {
             "id": c.id,
@@ -89,7 +89,7 @@ def get_post(request, post_id: int):
         "author": _author_dict(post.author),
         "tags": [_tag_dict(t) for t in post.tags.all()],
         "comments": comments,
-        "view_count": post.view_count + 1,  # refleja el incremento sin re-leer la fila
+        "view_count": post.view_count + 1,  # reflects the increment without re-reading the row
         "created_at": post.created_at,
         "updated_at": post.updated_at,
     }
@@ -104,7 +104,7 @@ def create_post(request, payload: PostCreateIn):
         body=payload.body,
     )
     if payload.tag_slugs:
-        # Una query para resolver todos los tags en vez de una por slug.
+        # One query to resolve all the tags instead of one per slug.
         tags = Tag.objects.filter(slug__in=payload.tag_slugs)
         post.tags.add(*tags)
     return {"id": post.id, "title": post.title}

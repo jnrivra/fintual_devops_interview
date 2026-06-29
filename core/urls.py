@@ -11,9 +11,9 @@ api.add_router("/", blog_router)
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", api.urls),
-    # Health checks para los probes de Kubernetes.
+    # Health checks for the Kubernetes probes.
     path("healthz", healthz, name="healthz"),
     path("readyz", readyz, name="readyz"),
-    # /metrics expuesto por django-prometheus (RED + métricas de DB).
+    # /metrics exposed by django-prometheus (RED + DB metrics).
     path("", include("django_prometheus.urls")),
 ]
